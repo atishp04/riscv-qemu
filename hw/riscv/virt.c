@@ -114,6 +114,8 @@ static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
         qemu_fdt_setprop_string(fdt, nodename, "status", "okay");
         qemu_fdt_setprop_cell(fdt, nodename, "reg", cpu);
         qemu_fdt_setprop_string(fdt, nodename, "device_type", "cpu");
+        qemu_fdt_setprop_cell(fdt, nodename, "phandle", cpu_phandle*5);
+        qemu_fdt_setprop_cell(fdt, nodename, "linux,phandle", cpu_phandle*5);
         qemu_fdt_add_subnode(fdt, intc);
         qemu_fdt_setprop_cell(fdt, intc, "phandle", cpu_phandle);
         qemu_fdt_setprop_cell(fdt, intc, "linux,phandle", cpu_phandle);
@@ -123,6 +125,19 @@ static void *create_fdt(RISCVVirtState *s, const struct MemmapEntry *memmap,
         g_free(isa);
         g_free(intc);
         g_free(nodename);
+    }
+
+    /* Add cpu-topology node */
+    qemu_fdt_add_subnode(fdt, "/cpus/cpu-topology");
+    qemu_fdt_add_subnode(fdt, "/cpus/cpu-topology/package0");
+    for (cpu = s->soc.num_harts - 1; cpu >= 0; cpu--) {
+        char *core_nodename = g_strdup_printf("/cpus/cpu-topology/package0/core%d", cpu);
+        char *cpu_nodename = g_strdup_printf("/cpus/cpu@%d", cpu);
+        uint32_t intc_phandle = qemu_fdt_get_phandle(fdt, cpu_nodename);
+	qemu_fdt_add_subnode(fdt, core_nodename);
+        qemu_fdt_setprop_cell(fdt, core_nodename, "cpu0", intc_phandle);
+	g_free(core_nodename);
+	g_free(cpu_nodename);
     }
 
     cells =  g_new0(uint32_t, s->soc.num_harts * 4);
